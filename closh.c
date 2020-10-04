@@ -15,9 +15,9 @@ typedef struct {
   int count;
   int parallel : 1;
   int timeout;
-} ColshState;
+} CloshState;
 
-void readTokens(ColshState *s) {
+void readTokens(CloshState *s) {
   s->cmd[strlen(s->cmd) - 1] = '\0';
   int i = 0;
   s->cmdTokens[i] = strtok(s->cmd, " ");
@@ -35,7 +35,7 @@ char readChar() {
 
 #define SZ 16
 // sequential executioan
-static void seq(ColshState const *const s) {
+static void seq(CloshState const *const s) {
   int pid;
   int status;
 
@@ -56,7 +56,7 @@ static void seq(ColshState const *const s) {
 }
 
 // parallel execution.
-static void par(ColshState const *const s) {
+static void par(CloshState const *const s) {
   int pid;
 
   for (int i = 0; i < s->count; ++i) { // fork children
@@ -83,7 +83,7 @@ static void par(ColshState const *const s) {
 #undef SZ
 
 // run the command.
-void run(ColshState const *const s) {
+void run(CloshState const *const s) {
   if (s->parallel)
     par(s);
   else
@@ -91,7 +91,7 @@ void run(ColshState const *const s) {
 }
 
 // one iteraction between shell and user.
-void rep(ColshState *s) {
+void rep(CloshState *s) {
   printf("closh> ");
   fgets(s->cmd, sizeof(s->cmd), stdin);
   if (s->cmd[0] == '\n')
@@ -118,7 +118,7 @@ void rep(ColshState *s) {
 }
 
 int main() {
-  ColshState s;
+  CloshState s;
   while (1)
     rep(&s);
   return 0;
