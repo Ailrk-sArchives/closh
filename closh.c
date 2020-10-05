@@ -17,6 +17,9 @@ typedef struct {
   int timeout;
 } CloshState;
 
+/*
+ * Read command line arguments from the input to pass to the executing process.
+ */
 void readTokens(CloshState *s) {
   s->cmd[strlen(s->cmd) - 1] = '\0';
   int i = 0;
@@ -26,6 +29,9 @@ void readTokens(CloshState *s) {
   }
 }
 
+/*
+ * Read a single character.
+ */
 char readChar() {
   char c = getchar();
   while (getchar() != '\n')
@@ -34,16 +40,22 @@ char readChar() {
 }
 
 #define SZ 16
-// sequential executioan
-static void seq(CloshState const *const s) {
+
+/*
+ * Execute a child process sequentially with the parent.
+ */
+static int seq(CloshState const *const s) {
   int pid;
   int status;
+  int ok = 1;
 
   for (int i = 0; i < s->count; i++) {
     pid = fork();
     if (pid == 0) {
       printf("pid: %d \n", getpid());
-      execvp(*s->cmdTokens, s->cmdTokens);
+      if (execvp(*s->cmdTokens, s->cmdTokens) == -1) {
+        ok = 0;
+      }
     } else {
       if (s->timeout == 0) {      // no timeout
         waitpid(pid, &status, 0); // wait one by one
@@ -53,17 +65,23 @@ static void seq(CloshState const *const s) {
       }
     }
   }
+  return ok;
 }
 
-// parallel execution.
-static void par(CloshState const *const s) {
+/*
+ * Execute a child process in parallel
+ */
+static int par(CloshState const *const s) {
   int pid;
+  int ok = 1;
 
   for (int i = 0; i < s->count; ++i) { // fork children
     pid = fork();
     if (pid == 0) {
       printf("pid: %d \n", getpid());
-      execvp(*s->cmdTokens, s->cmdTokens);
+      if (execvp(*s->cmdTokens, s->cmdTokens) == -1) {
+        ok = 0;
+      }
     }
   }
 
@@ -79,23 +97,33 @@ static void par(CloshState const *const s) {
       waitpid_or_EINTR(&status);
     }
   }
+
+  return ok;
 }
 #undef SZ
 
-// run the command.
-void run(CloshState const *const s) {
+/*
+ * Run the command, using either parallel or sequential execution.
+ */
+int run(CloshState const *const s) {
   if (s->parallel)
-    par(s);
+    return par(s);
   else
-    seq(s);
+    return seq(s);
 }
 
-// one iteraction between shell and user.
+/*
+ * Handles one interaction between the shell and the user.
+ */
 void rep(CloshState *s) {
   printf("closh> ");
   fgets(s->cmd, sizeof(s->cmd), stdin);
+
+  // nothing was read
   if (s->cmd[0] == '\n')
     return;
+
+  // split cmd into cmd + arguments
   readTokens(s);
 
   do {
@@ -111,9 +139,9 @@ void rep(CloshState *s) {
     s->timeout = readChar() - '0';
   } while (s->timeout < 0 || s->timeout > 9);
 
-  run(s);
-
-  printf("Can't execute %s\n", s->cmdTokens[0]);
+  if (!run(s)) {
+    printf("Can't execute %s\n", s->cmdTokens[0]);
+  }
   exit(1);
 }
 
